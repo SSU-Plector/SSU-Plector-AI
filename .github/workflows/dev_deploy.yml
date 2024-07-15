@@ -1,0 +1,88 @@
+name: SP AI CI/CD
+
+on:
+  pull_request:
+    branches:
+      - develop
+    types:
+      - closed
+  workflow_dispatch: # (2).수동 실행도 가능하도록
+
+env:
+  S3_BUCKET_NAME: ssu-plector-deploy
+  PROJECT_NAME: ssu-plector
+  ENV_NAME : SP
+  AWS_REGION: ap-northeast-2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # (3).OS환경
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2 # (4).코드 check out
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          pip install build 
+
+      - name: Run tests with pytest
+        run: pytest
+        shell: bash
+        env:
+          pythonLocation: /opt/hostedtoolcache/Python/3.9.19/x64
+          LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.9.19/x64/lib
+
+      - name: Build project
+        run:  python -m build
+
+      - name: Make zip file
+        run: zip -r ./$GITHUB_SHA.zip .
+        shell: bash
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload to S3
+        run: aws s3 cp --region ap-northeast-2 ./$GITHUB_SHA.zip s3://$S3_BUCKET_NAME/$PROJECT_NAME/$GITHUB_SHA.zip
+
+      - name: Generate deployment package
+        run: |
+          mkdir -p deploy
+          cp application.py deploy/application.py
+          cp -r src deploy/src
+          cp Procfile deploy/Procfile
+          cp requirements.txt deploy/requirements.txt
+          cp -r .ebextensions deploy/.ebextensions
+          cp -r .platform deploy/.platform
+          cd deploy && zip -r deploy.zip .
+
+      - name: Get current time # 한국 시간으로 설정
+        uses: 1466587594/get-current-time@v2
+        id: current-time
+        with:
+          format: YYYY-MM-DDTHH-mm-ss
+          utcOffset: "+09:00"
+
+      - name: Beanstalk Deploy
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          aws_access_key: ${{ secrets.AWS_DEV_ACTION_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_DEV_ACTION_SECRET_ACCESS_KEY }}
+          application_name: ${{ env.ENV_NAME }}
+          environment_name: ${{ env.ENV_NAME }}-env-model
+          version_label: github-action-${{ steps.current-time.outputs.formattedTime }}
+          region: ${{ env.AWS_REGION }}
+          deployment_package: deploy/deploy.zip
+          wait_for_deployment: false
