@@ -11,7 +11,7 @@ on:
 env:
   S3_BUCKET_NAME: ssu-plector-deploy
   PROJECT_NAME: ssu-plector
-  ENV_NAME : SSU-Plector-AI
+  ENV_NAME : SP
   AWS_REGION: ap-northeast-2
 
 jobs:
@@ -81,7 +81,7 @@ jobs:
           aws_access_key: ${{ secrets.AWS_DEV_ACTION_ACCESS_KEY_ID }}
           aws_secret_key: ${{ secrets.AWS_DEV_ACTION_SECRET_ACCESS_KEY }}
           application_name: ${{ env.ENV_NAME }}
-          environment_name: ${{ env.ENV_NAME }}-env
+          environment_name: ${{ env.ENV_NAME }}-AI
           version_label: github-action-${{ steps.current-time.outputs.formattedTime }}
           region: ${{ env.AWS_REGION }}
           deployment_package: deploy/deploy.zip
