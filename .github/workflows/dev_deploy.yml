@@ -25,7 +25,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.9
+          python-version: 3.11
 
       - name: Install dependencies
         run: |
@@ -66,7 +66,7 @@ jobs:
           cp requirements.txt deploy/requirements.txt
           cp -r .ebextensions deploy/.ebextensions
           cp -r .platform deploy/.platform
-          cd deploy && zip -r deploy.zip .
+          cd deploy && zip -r deploy.zip . -x "*.pyc" -x "__pycache__/*"
 
       - name: Get current time # 한국 시간으로 설정
         uses: 1466587594/get-current-time@v2
