@@ -5,6 +5,7 @@ from src.enum.part import Part
 from src.service.database import developer_part_eq
 from src.service.nlp.similarity import max_similarity, cal_similarity
 
+import torch
 
 # 개발자 매칭 함수
 def developer_matching(data):
