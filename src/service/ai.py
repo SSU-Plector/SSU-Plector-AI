@@ -1,13 +1,11 @@
 from flask import abort
-from sklearn.feature_extraction.text import TfidfVectorizer
-
+from sklearn.metrics.pairwise import cosine_similarity
 from src.enum.part import Part
 from src.service.database import developer_part_eq
 from src.service.nlp.embedding import get_bert_embeddings
-from src.service.nlp.similarity import max_similarity, cal_similarity
+import numpy as np
 
 
-# 개발자 매칭 함수
 def developer_matching(data):
     part = data.get('part')
     query = data.get('request')
@@ -23,23 +21,26 @@ def developer_matching(data):
     if query is None:
         query = ''
 
-    tfidf_vectorizer = TfidfVectorizer()
-    tfidf_matrix = tfidf_vectorizer.fit_transform(df['short_intro'].tolist())
-    query_tfidf = tfidf_vectorizer.transform([query])
-    tfidf_similarities = cal_similarity(tfidf_matrix, query_tfidf)
-
     developer_embeddings = get_bert_embeddings(df['short_intro'].tolist())
     query_embedding = get_bert_embeddings([query])
-    embedding_similarities = cal_similarity(developer_embeddings, query_embedding)
 
-    hybrid_similarities = 0.5 * tfidf_similarities + 0.5 * embedding_similarities
-    recommended_indices = max_similarity(hybrid_similarities, 5)
+    if developer_embeddings.shape[0] == 0 or query_embedding.shape[0] == 0:
+        abort(400, 'No embeddings found')
 
-    # recommended_indices = max_similarity(tfidf_similarities, 5)
+    embedding_similarities = cosine_similarity(query_embedding.cpu().numpy(), developer_embeddings.cpu().numpy())
+
+    num_developers = min(5, len(embedding_similarities[0]))
+    recommended_indices = np.argsort(-embedding_similarities[0])[:num_developers]
 
     result_df = df.iloc[recommended_indices].copy()
     result_df['developer_id'] = result_df['developer_id'].astype(int)
+    result_df['similarity'] = embedding_similarities[0, recommended_indices]
 
     return {
-        'developers': [{'developer_id': dev_id} for dev_id in result_df['developer_id']]
+        'developers': [
+            {
+                'developer_id': row['developer_id'],
+                'similarity': row['similarity']
+            } for _, row in result_df.iterrows()
+        ]
     }
