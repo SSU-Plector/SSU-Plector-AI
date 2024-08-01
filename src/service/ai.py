@@ -1,8 +1,10 @@
 from flask import abort
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from src.enum.part import Part
 from src.service.database import developer_part_eq
-from src.service.nlp.embedding import get_bert_embeddings
+from src.service.nlp.embedding import count_keyword_matches
+from src.service.nlp.preprogress import preprocess_text
 import numpy as np
 
 
@@ -21,20 +23,32 @@ def developer_matching(data):
     if query is None:
         query = ''
 
-    developer_embeddings = get_bert_embeddings(df['short_intro'].tolist())
-    query_embedding = get_bert_embeddings([query])
+    # PreProcessing
+    query = preprocess_text(query)
+    short_intro_list = df['short_intro'].apply(preprocess_text).tolist()
 
-    if developer_embeddings.shape[0] == 0 or query_embedding.shape[0] == 0:
-        abort(400, 'No embeddings found')
+    # Calculate keyword match counts
+    match_counts = [count_keyword_matches(query, intro) for intro in short_intro_list]
 
-    embedding_similarities = cosine_similarity(query_embedding.cpu().numpy(), developer_embeddings.cpu().numpy())
+    # Vectorize the text
+    vectorizer = TfidfVectorizer()
+    vectors = vectorizer.fit_transform(short_intro_list)
+    query_vector = vectorizer.transform([query])
 
-    num_developers = min(5, len(embedding_similarities[0]))
-    recommended_indices = np.argsort(-embedding_similarities[0])[:num_developers]
+    # Calculate similarity
+    embedding_similarities = cosine_similarity(query_vector, vectors).flatten()
+
+    adjusted_similarities = embedding_similarities*0.7 + match_counts*0.3
+
+    num_developers = min(5, len(adjusted_similarities))
+    recommended_indices = np.argsort(-adjusted_similarities)[:num_developers]
+
+    # Ensure recommended_indices is 1D
+    recommended_indices = np.array(recommended_indices).flatten()
 
     result_df = df.iloc[recommended_indices].copy()
     result_df['developer_id'] = result_df['developer_id'].astype(int)
-    result_df['similarity'] = embedding_similarities[0, recommended_indices]
+    result_df['similarity'] = adjusted_similarities[recommended_indices]
 
     return {
         'developers': [
