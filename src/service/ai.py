@@ -5,6 +5,8 @@ from src.service.database import developer_part_eq
 from src.service.nlp.embedding import get_bert_embeddings
 import numpy as np
 
+from src.service.nlp.preprogress import preprocess_text
+
 
 def developer_matching(data):
     part = data.get('part')
@@ -21,7 +23,11 @@ def developer_matching(data):
     if query is None:
         query = ''
 
-    developer_embeddings = get_bert_embeddings(df['short_intro'].tolist())
+    #Preprocessing
+    query = preprocess_text(query)
+    short_intro_list = df['short_intro'].apply(preprocess_text).tolist()
+
+    developer_embeddings = get_bert_embeddings(short_intro_list)
     query_embedding = get_bert_embeddings([query])
 
     if developer_embeddings.shape[0] == 0 or query_embedding.shape[0] == 0:
