@@ -2,8 +2,8 @@ from transformers import BertTokenizer, BertModel
 import torch
 
 # BERT 모델과 토크나이저를 로드합니다.
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-model = BertModel.from_pretrained('bert-base-uncased')
+tokenizer = BertTokenizer.from_pretrained('klue/bert-base')
+model = BertModel.from_pretrained('klue/bert-base')
 
 def get_bert_embeddings(text_list):
     inputs = tokenizer(text_list, return_tensors='pt', padding=True, truncation=True, max_length=512)
