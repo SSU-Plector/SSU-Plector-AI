@@ -27,24 +27,22 @@ def developer_matching(data):
     query = preprocess_text(query)
     short_intro_list = df['short_intro'].apply(preprocess_text).tolist()
 
-    # Calculate keyword match counts
+    # Keyword match counts
     match_counts = [count_keyword_matches(query, intro) for intro in short_intro_list]
+    match_counts = np.array(match_counts)
 
-    # Vectorize the text
+    # Vectorize
     vectorizer = TfidfVectorizer()
     vectors = vectorizer.fit_transform(short_intro_list)
     query_vector = vectorizer.transform([query])
 
     # Calculate similarity
     embedding_similarities = cosine_similarity(query_vector, vectors).flatten()
-
-    adjusted_similarities = embedding_similarities*0.7 + match_counts*0.3
+    adjusted_similarities = embedding_similarities * 0.7 + match_counts * 0.3
+    adjusted_similarities = np.clip(adjusted_similarities, a_min=None, a_max=1.0)
 
     num_developers = min(5, len(adjusted_similarities))
     recommended_indices = np.argsort(-adjusted_similarities)[:num_developers]
-
-    # Ensure recommended_indices is 1D
-    recommended_indices = np.array(recommended_indices).flatten()
 
     result_df = df.iloc[recommended_indices].copy()
     result_df['developer_id'] = result_df['developer_id'].astype(int)
