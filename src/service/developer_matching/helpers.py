@@ -1,7 +1,6 @@
 from flask import abort
 from src.enum.part import Part
 from src.service.database import developer_part_eq
-from src.service.nlp.embedding import count_keyword_matches
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -50,3 +49,8 @@ def get_top_recommendations(df, similarities, top_n=5):
             } for _, row in result_df.iterrows()
         ]
     }
+
+def count_keyword_matches(query, intro):
+    query_tokens = set(query.split())
+    intro_tokens = set(intro.split())
+    return len(query_tokens.intersection(intro_tokens))
