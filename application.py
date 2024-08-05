@@ -3,7 +3,7 @@ from flask_restx import Api, Resource, fields
 
 from src.enum.part import Part
 from src.health_check import health_check_module
-from src.service.ai import developer_matching
+from src.service.developer_matching.matching import developer_matching
 
 application = Flask(__name__)
 
